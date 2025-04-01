@@ -45,7 +45,8 @@ def model_changed(sender, instance, created, **kwargs):
     if isinstance(instance, Account):
         data = {
             'type': 'account_update',
-            'account': {
+            'data': {
+                'id': instance.id,
                 'account_name': instance.account_name,
                 'account_balance': str(instance.account_balance),
                 'base_currency': instance.base_currency,
@@ -56,26 +57,21 @@ def model_changed(sender, instance, created, **kwargs):
     else:  # ForexPosition
         data = {
             'type': 'position_update',
-            'position': {
+            'data': {
                 'id': instance.id,
                 'symbol': instance.symbol,
                 'quantity': str(instance.quantity),
                 'entry_price': str(instance.entry_price),
-                'current_price': str(instance.current_price),
+                'current_price': str(instance.current_price) if instance.current_price else None,
                 'position_type': instance.position_type,
+                'account_id': instance.account.id,
                 'status': instance.status,
                 'trade_date': instance.trade_date.isoformat(),
                 'account_name': instance.account.account_name
             }
         }
 
-    async_to_sync(channel_layer.group_send)(
-        'forex_updates',
-        {
-            'type': 'forex.update',
-            'data': json.dumps(data)
-        }
-    )
+    async_to_sync(channel_layer.group_send)('forex_updates', data)
 
 async def sse_handler(request):
     client_queue = asyncio.Queue()

@@ -23,6 +23,7 @@ class Command(BaseCommand):
     def __init__(self):
         super().__init__()
         self.currency_pairs = ['EUR/USD', 'GBP/USD', 'USD/JPY', 'USD/CHF', 'AUD/USD']
+        self.channel_layer = get_channel_layer()
 
     def handle(self, *args, **options):
         self.stdout.write('Starting Forex data generator...')
@@ -88,6 +89,7 @@ class Command(BaseCommand):
     def _update_random_position(self):
         positions = list(ForexPosition.objects.filter(status='OPEN'))
         if not positions:
+            print("No open positions to update")
             return
 
         position = random.choice(positions)
@@ -95,22 +97,28 @@ class Command(BaseCommand):
         
         # Randomly update price (±0.5%) with proper decimal places
         price_change = Decimal(str(round(random.uniform(-0.005, 0.005), 5)))
-        position.current_price = Decimal(str(round(float(position.current_price) * float(1 + price_change), 5)))
-        position.save()
+        new_price = Decimal(str(round(float(position.current_price) * float(1 + price_change), 5)))
+        print(f"Updating position {position.id} ({position.symbol}): {old_price} -> {new_price}")
+        
+        position.current_price = new_price
+        position.save()  # This will trigger the signal
         
         self.stdout.write(f'Updated {position.symbol}: {old_price} -> {position.current_price}')
 
         # Occasionally update account balance (10% chance)
         if random.random() < 0.1:
             account = random.choice(list(Account.objects.all()))
+            old_balance = account.account_balance
             change = Decimal(str(round(random.uniform(-10000, 10000), 2)))
             account.account_balance += change
-            account.save()
+            print(f"Updating account {account.id} ({account.account_name}): {old_balance} -> {account.account_balance}")
+            account.save()  # This will trigger the signal
             self.stdout.write(f'Updated account {account.account_name}: balance change {change}')
 
         # Occasionally create new position (5% chance)
         if random.random() < 0.05:
             account = random.choice(list(Account.objects.all()))
             symbol = random.choice(self.currency_pairs)
-            new_position = self._create_position(symbol, account)
+            print(f"Creating new position for {symbol} in account {account.account_name}")
+            new_position = self._create_position(symbol, account)  # This will trigger the signal
             self.stdout.write(f'Created new position: {new_position}') 

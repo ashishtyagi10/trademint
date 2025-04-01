@@ -2,6 +2,8 @@ from django.db import models
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 from decimal import Decimal
+from django.utils import timezone
+from datetime import timedelta
 
 # Create your models here.
 
@@ -50,3 +52,26 @@ class ForexPosition(models.Model):
             return (self.current_price - self.entry_price) * self.quantity
         else:  # SHORT
             return (self.entry_price - self.current_price) * self.quantity
+
+class WebSocketConnection(models.Model):
+    channel_name = models.CharField(max_length=255, unique=True)
+    groups = models.JSONField(default=list)
+    last_seen = models.DateTimeField(auto_now=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=['channel_name']),
+        ]
+
+    def __str__(self):
+        return f"Connection {self.channel_name}"
+
+    @classmethod
+    def cleanup_stale_connections(cls, max_age_minutes=5):
+        """Remove connections older than max_age_minutes"""
+        cutoff_time = timezone.now() - timedelta(minutes=max_age_minutes)
+        stale_connections = cls.objects.filter(last_seen__lt=cutoff_time)
+        count = stale_connections.count()
+        stale_connections.delete()
+        return count

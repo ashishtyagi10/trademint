@@ -32,6 +32,44 @@
         color: #dc3545 !important;  /* Bootstrap danger */
         font-weight: bold;
     }
+    .highlight-update {
+        animation: highlightFade 1.5s ease-in-out;
+    }
+
+    @keyframes highlightFade {
+        0% {
+            background-color: #ffd700;
+        }
+        100% {
+            background-color: transparent;
+        }
+    }
+
+    .highlight-increase {
+        animation: highlightIncrease 1.5s ease-in-out;
+    }
+
+    @keyframes highlightIncrease {
+        0% {
+            background-color: #90EE90;
+        }
+        100% {
+            background-color: transparent;
+        }
+    }
+
+    .highlight-decrease {
+        animation: highlightDecrease 1.5s ease-in-out;
+    }
+
+    @keyframes highlightDecrease {
+        0% {
+            background-color: #ff6b6b;
+        }
+        100% {
+            background-color: transparent;
+        }
+    }
 </style>
 {% endblock %}
 
@@ -49,6 +87,9 @@
 $(document).ready(function() {
     accountTable = $('#accountTable').DataTable({
         pageLength: 10,
+        rowId: function(row) {
+            return 'account-' + row.name;
+        },
         columns: [
             { data: 'name' },
             { 
@@ -75,6 +116,9 @@ $(document).ready(function() {
 
     positionTable = $('#positionTable').DataTable({
         pageLength: 10,
+        rowId: function(row) {
+            return 'position-' + row.id;
+        },
         columns: [
             { data: 'symbol' },
             { data: 'position_type' },
@@ -105,7 +149,13 @@ $(document).ready(function() {
                 }
             },
             { data: 'status' },
-            { data: 'account_name' },
+            { 
+                data: 'account_name',
+                render: function(data, type, row) {
+                    console.log('Rendering account_name:', { data, type, row });
+                    return data || '-';
+                }
+            },
             { 
                 data: 'id',
                 render: function(data) {
@@ -116,42 +166,64 @@ $(document).ready(function() {
         ]
     });
 
-    const eventSource = new EventSource('/forex/stream/');
+    // Initialize WebSocket connection
+    const ws = new WebSocket(`ws://${window.location.host}/forex/stream/`);
     
-    eventSource.onmessage = function(event) {
-        const data = JSON.parse(event.data);
-        console.log('Received SSE update:', data);
+    ws.onmessage = function(event) {
+        try {
+            console.log('Raw WebSocket message received:', event.data);
+            const data = JSON.parse(event.data);
+            console.log('Parsed WebSocket data:', data);
 
-        // Handle initial data load
-        if (data.accounts && data.positions) {
-            // Clear existing data
-            accountTable.clear();
-            positionTable.clear();
+            // Handle initial data load
+            if (data.accounts && data.positions) {
+                console.log('Received initial data load');
+                console.log('Positions data:', data.positions);
+                
+                // Clear existing data
+                accountTable.clear();
+                positionTable.clear();
 
-            // Add new data
-            data.accounts.forEach(account => {
-                accountTable.row.add(account);
-            });
+                // Add new data
+                data.accounts.forEach(account => {
+                    accountTable.row.add(account);
+                });
 
-            data.positions.forEach(position => {
-                positionTable.row.add(position);
-            });
+                data.positions.forEach(position => {
+                    console.log('Adding position to table:', position);
+                    positionTable.row.add(position);
+                });
 
-            // Redraw tables
-            accountTable.draw();
-            positionTable.draw();
-        }
-        // Handle individual updates
-        else if (data.type === 'account_update') {
-            updateAccountTable(data.account);
-        } else if (data.type === 'position_update') {
-            updatePositionTable(data.position);
+                // Redraw tables
+                accountTable.draw();
+                positionTable.draw();
+            }
+            // Handle account_update message type
+            else if (data.type === 'account_update') {
+                console.log('Processing account update:', data.data);
+                updateAccountTable(data.data);
+            }
+            // Handle position_update message type
+            else if (data.type === 'position_update') {
+                console.log('Processing position update:', data.data);
+                updatePositionTable(data.data);
+            }
+            // Handle ping message
+            else if (data.type === 'ping') {
+                console.log('Received ping');
+            }
+        } catch (error) {
+            console.error('Error processing WebSocket message:', error);
+            console.error('Raw message:', event.data);
         }
     };
 
-    eventSource.onerror = function(error) {
-        console.error('SSE Error:', error);
-        eventSource.close();
+    ws.onerror = function(error) {
+        console.error('WebSocket Error:', error);
+    };
+
+    ws.onclose = function() {
+        console.log('WebSocket connection closed');
     };
 });
 
@@ -167,20 +239,104 @@ function calculatePL(position) {
 }
 
 function updateAccountTable(account) {
-    const row = accountTable.row(`#account-${account.id}`);
+    const row = accountTable.row('#account-' + account.account_name);
     if (row.length) {
-        row.data(account).draw();
+        // Store old data for comparison
+        const oldData = row.data();
+        
+        // Update the row
+        row.data(account).draw(false);
+        
+        // Highlight changed cells
+        const cells = row.nodes().to$().find('td');
+        cells.each(function(index) {
+            const cell = $(this);
+            const columnData = accountTable.column(index).dataSrc();
+            
+            if (oldData[columnData] !== account[columnData]) {
+                // For numeric values (like balance), determine if it increased or decreased
+                if (columnData === 'account_balance') {
+                    const oldValue = parseFloat(oldData[columnData]);
+                    const newValue = parseFloat(account[columnData]);
+                    if (newValue > oldValue) {
+                        cell.addClass('highlight-increase');
+                    } else if (newValue < oldValue) {
+                        cell.addClass('highlight-decrease');
+                    }
+                } else {
+                    cell.addClass('highlight-update');
+                }
+                
+                // Remove highlight class after animation
+                setTimeout(() => {
+                    cell.removeClass('highlight-update highlight-increase highlight-decrease');
+                }, 1500);
+            }
+        });
     } else {
-        accountTable.row.add(account).draw();
+        accountTable.row.add(account).draw(false);
     }
 }
 
 function updatePositionTable(position) {
+    console.log('Updating position in table:', position);
+    console.log('Position fields:', Object.keys(position));
+    console.log('Account name field:', position.account_name);
+    console.log('Account __account_name field:', position.account__account_name);
+    
     const row = positionTable.row(`#position-${position.id}`);
+    
     if (row.length) {
-        row.data(position).draw();
+        console.log('Found existing row, current data:', row.data());
+        const oldData = row.data();
+        
+        // Ensure account_name is present
+        if (!position.account_name && position.account__account_name) {
+            position.account_name = position.account__account_name;
+            console.log('Set account_name from account__account_name:', position.account_name);
+        }
+        
+        // Update the row data
+        row.data(position).draw(false);
+        
+        // Get all cells in the row
+        const cells = row.nodes().to$().find('td');
+        
+        // Compare each field and highlight changed cells
+        cells.each(function(index) {
+            const cell = $(this);
+            const columnData = positionTable.column(index).dataSrc();
+            
+            if (oldData[columnData] !== position[columnData]) {
+                // For numeric values (like prices and P&L), determine if it increased or decreased
+                if (['current_price', 'entry_price', 'quantity'].includes(columnData)) {
+                    const oldValue = parseFloat(oldData[columnData]);
+                    const newValue = parseFloat(position[columnData]);
+                    if (newValue > oldValue) {
+                        cell.addClass('highlight-increase');
+                    } else if (newValue < oldValue) {
+                        cell.addClass('highlight-decrease');
+                    } else {
+                        cell.addClass('highlight-update');
+                    }
+                } else {
+                    cell.addClass('highlight-update');
+                }
+                
+                // Remove highlight class after animation
+                setTimeout(() => {
+                    cell.removeClass('highlight-update highlight-increase highlight-decrease');
+                }, 1500);
+            }
+        });
     } else {
-        positionTable.row.add(position).draw();
+        console.log('Row not found, adding new row');
+        // Ensure account_name is present for new rows
+        if (!position.account_name && position.account__account_name) {
+            position.account_name = position.account__account_name;
+            console.log('Set account_name from account__account_name for new row:', position.account_name);
+        }
+        positionTable.row.add(position).draw(false);
     }
 }
 

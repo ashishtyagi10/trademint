@@ -135,11 +135,34 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 # Whitenoise settings
 STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 
+# Cache configuration
+CACHES = {
+    'default': {
+        'BACKEND': 'django.core.cache.backends.db.DatabaseCache',
+        'LOCATION': 'cache_table',
+        'OPTIONS': {
+            'MAX_ENTRIES': 1000,
+            'CULL_FREQUENCY': 3,
+        }
+    }
+}
+
 # Channel layer configuration
 CHANNEL_LAYERS = {
-    "default": {
-        "BACKEND": "channels.layers.InMemoryChannelLayer"
-    }
+    'default': {
+        'BACKEND': 'channels.layers.InMemoryChannelLayer',
+        'CONFIG': {},
+        'OPTIONS': {
+            'capacity': 1500,
+            'expiry': 3600,
+            'group_expiry': 3600,
+            'channel_capacity': {
+                'http.request': 100,
+                'http.response!*': 100,
+                'websocket.send!*': 100,
+            },
+        },
+    },
 }
 
 # Increase timeout for long-running connections
