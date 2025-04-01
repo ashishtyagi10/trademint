@@ -21,7 +21,8 @@ os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'trademint.settings')
 django.setup()
 
 # Now we can safely import modules that use Django models
-from forex.routing import http_urlpatterns, websocket_urlpatterns
+from forex.routing import http_urlpatterns as forex_http_urlpatterns, websocket_urlpatterns as forex_websocket_urlpatterns
+from thinkorswim.routing import http_urlpatterns as thinkorswim_http_urlpatterns
 
 # Initialize Django ASGI application early to ensure the AppRegistry is populated
 # before importing modules that might import ORM models.
@@ -29,8 +30,12 @@ django_asgi_app = get_asgi_application()
 
 # Configure the application
 application = ProtocolTypeRouter({
-    "http": django_asgi_app,
+    "http": URLRouter([
+        *forex_http_urlpatterns,
+        *thinkorswim_http_urlpatterns,
+        re_path(r"^", django_asgi_app),  # This will handle all other HTTP requests
+    ]),
     "websocket": AuthMiddlewareStack(
-        URLRouter(websocket_urlpatterns)
+        URLRouter(forex_websocket_urlpatterns)
     ),
 })
