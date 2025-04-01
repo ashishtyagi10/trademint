@@ -1,0 +1,445 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}ThinkOrSwim Trading{% endblock %}
+
+{% block header %}ThinkOrSwim Trading Dashboard{% endblock %}
+{% block subheader %}Real-time positions and counterparty updates{% endblock %}
+
+{% block extra_css %}
+<!-- DataTables CSS -->
+<link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/1.11.5/css/dataTables.bootstrap5.min.css">
+<link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/responsive/2.2.9/css/responsive.bootstrap5.min.css">
+
+<!-- Bootstrap CSS -->
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+
+<style>
+    .status-open {
+        background-color: #d4edda !important;
+    }
+    .status-closed {
+        background-color: #f8d7da !important;
+    }
+    .status-pending {
+        background-color: #fff3cd !important;
+    }
+</style>
+
+<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css" rel="stylesheet">
+{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title text-center">Counterparties</h3>
+            </div>
+            <div class="card-body">
+                <table id="counterpartyTable" class="table table-striped">
+                    <thead>
+                        <tr>
+                            <th>Name</th>
+                            <th>Type</th>
+                            <th>Credit Rating</th>
+                            <th>Risk Score</th>
+                            <th>Status</th>
+                            <th>Last Updated</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title text-center">Positions</h3>
+            </div>
+            <div class="card-body">
+                <table id="positionTable" class="table table-striped">
+                    <thead>
+                        <tr>
+                            <th>Symbol</th>
+                            <th>Type</th>
+                            <th>Quantity</th>
+                            <th>Entry Price</th>
+                            <th>Current Price</th>
+                            <th>P&L</th>
+                            <th>Status</th>
+                            <th>Counterparty</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Edit Position Modal -->
+<div class="modal fade" id="editPositionModal" tabindex="-1" role="dialog" aria-labelledby="editPositionModalLabel" aria-hidden="true">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="editPositionModalLabel">Edit Position</h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <form id="editPositionForm">
+                    <input type="hidden" id="id" name="id">
+                    <div class="form-group">
+                        <label for="symbol">Symbol</label>
+                        <input type="text" class="form-control" id="symbol" name="symbol" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="quantity">Quantity</label>
+                        <input type="number" class="form-control" id="quantity" name="quantity" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="entry_price">Entry Price</label>
+                        <input type="number" step="0.01" class="form-control" id="entry_price" name="entry_price" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="position_type">Position Type</label>
+                        <select class="form-control" id="position_type" name="position_type" required>
+                            <option value="LONG">Long</option>
+                            <option value="SHORT">Short</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="counterparty">Counterparty</label>
+                        <select class="form-control" id="counterparty" name="counterparty" required>
+                            <!-- This will be populated dynamically -->
+                        </select>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-primary" onclick="savePosition()">Save changes</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% block extra_js %}
+<!-- jQuery and DataTables JS -->
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script src="https://cdn.datatables.net/1.11.5/js/jquery.dataTables.min.js"></script>
+<script src="https://cdn.datatables.net/1.11.5/js/dataTables.bootstrap5.min.js"></script>
+<script src="https://cdn.datatables.net/responsive/2.2.9/js/dataTables.responsive.min.js"></script>
+
+<script>
+$(document).ready(function() {
+    // Destroy existing instances if they exist
+    if ($.fn.DataTable.isDataTable('#counterpartyTable')) {
+        $('#counterpartyTable').DataTable().destroy();
+    }
+    if ($.fn.DataTable.isDataTable('#positionTable')) {
+        $('#positionTable').DataTable().destroy();
+    }
+
+    // Initialize tables with proper variable scope
+    let counterpartyTable = $('#counterpartyTable').DataTable({
+        pageLength: 10,
+        columns: [
+            { data: 'counterparty_name' },
+            { data: 'counterparty_type' },
+            { data: 'credit_rating' },
+            { data: 'risk_score' },
+            { data: 'status' },
+            { 
+                data: 'updated_at',
+                render: function(data) {
+                    return formatDate(data);
+                }
+            }
+        ]
+    });
+
+    // Update the position table HTML header first
+    const positionHeaders = `
+        <tr>
+            <th>Symbol</th>
+            <th>Type</th>
+            <th>Quantity</th>
+            <th>Entry Price</th>
+            <th>Current Price</th>
+            <th>P&L</th>
+            <th>Status</th>
+            <th>Counterparty</th>
+            <th>Actions</th>
+        </tr>
+    `;
+    $('#positionTable thead').html(positionHeaders);
+
+    // Update the DataTable initialization
+    let positionTable = $('#positionTable').DataTable({
+        pageLength: 10,
+        columns: [
+            { data: 'symbol' },
+            { data: 'position_type' },
+            { 
+                data: 'quantity',
+                render: function(data) {
+                    return formatNumber(data);
+                }
+            },
+            { 
+                data: 'entry_price',
+                render: function(data) {
+                    return formatNumber(data);
+                }
+            },
+            { 
+                data: 'current_price',
+                render: function(data) {
+                    return data ? formatNumber(data) : '-';
+                }
+            },
+            { 
+                data: null,
+                render: function(data) {
+                    if (!data.current_price) return '-';
+                    const pnl = calculatePL(data);
+                    return formatCurrency(pnl);
+                }
+            },
+            { data: 'status' },
+            { data: 'counterparty_name' },
+            { 
+                data: 'id',
+                render: function(data, type, row) {
+                    return `
+                        <div class="btn-group" role="group">
+                            <button type="button" class="btn btn-sm btn-primary" onclick="editPosition(${data})">
+                                <i class="fas fa-edit"></i> Edit
+                            </button>
+                            <button type="button" class="btn btn-sm btn-danger" onclick="deletePosition(${data})">
+                                <i class="fas fa-trash"></i> Delete
+                            </button>
+                        </div>
+                    `;
+                }
+            }
+        ]
+    });
+
+    // Set up SSE connection
+    const eventSource = new EventSource('/thinkorswim/stream/');
+    
+    eventSource.onopen = function(event) {
+        console.log('SSE Connection opened');
+    };
+
+    eventSource.onmessage = function(event) {
+        console.log('Raw event data:', event.data);
+        
+        try {
+            const data = JSON.parse(event.data);
+            console.log('Parsed data:', data);
+
+            // Check if this is the initial data load
+            if (data.counterparties || (data.type === 'initial_data' && data.data)) {
+                console.log('Processing initial data');
+                
+                // Clear existing data
+                counterpartyTable.clear();
+                positionTable.clear();
+
+                // Get the data array (handle both data formats)
+                const counterparties = data.counterparties || (data.data ? data.data.counterparties : []);
+                const positions = data.positions || (data.data ? data.data.positions : []);
+
+                console.log('Counterparties to load:', counterparties);
+                console.log('Positions to load:', positions);
+
+                // Load the data
+                if (counterparties && counterparties.length > 0) {
+                    counterpartyTable.rows.add(counterparties).draw();
+                    console.log('Counterparties loaded:', counterpartyTable.rows().count());
+                }
+
+                if (positions && positions.length > 0) {
+                    positionTable.rows.add(positions).draw();
+                    console.log('Positions loaded:', positionTable.rows().count());
+                }
+            }
+            // Handle updates
+            else if (data.type === 'counterparty_update') {
+                console.log('Updating counterparty:', data.counterparty);
+                updateCounterpartyTable(data.counterparty, counterpartyTable);
+            }
+            else if (data.type === 'position_update') {
+                console.log('Updating position:', data.position);
+                updatePositionTable(data.position, positionTable);
+            }
+        } catch (error) {
+            console.error('Error processing event:', error);
+            console.error('Event data:', event.data);
+        }
+    };
+
+    eventSource.onerror = function(error) {
+        console.error('SSE Error:', error);
+    };
+});
+
+// Helper functions
+function updateCounterpartyTable(counterparty, table) {
+    console.log('Updating counterparty in table:', counterparty);
+    const existingRow = table.row('#counterparty-' + counterparty.id);
+    if (existingRow.length) {
+        existingRow.data(counterparty).draw();
+    } else {
+        table.row.add(counterparty).draw();
+    }
+}
+
+function updatePositionTable(position, table) {
+    console.log('Updating position in table:', position);
+    const existingRow = table.row('#position-' + position.id);
+    if (existingRow.length) {
+        existingRow.data(position).draw();
+    } else {
+        table.row.add(position).draw();
+    }
+}
+
+function formatCurrency(value) {
+    return new Intl.NumberFormat('en-US', {
+        style: 'currency',
+        currency: 'USD'
+    }).format(value);
+}
+
+function formatNumber(value) {
+    return new Intl.NumberFormat('en-US', {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+    }).format(value);
+}
+
+function formatDate(dateString) {
+    if (!dateString) return '';
+    return new Date(dateString).toLocaleString();
+}
+
+function calculatePL(position) {
+    if (!position.current_price) return 0;
+    const quantity = parseFloat(position.quantity);
+    const entryPrice = parseFloat(position.entry_price);
+    const currentPrice = parseFloat(position.current_price);
+    
+    return position.position_type === 'LONG'
+        ? (currentPrice - entryPrice) * quantity
+        : (entryPrice - currentPrice) * quantity;
+}
+
+// Add the action functions
+function editPosition(id) {
+    console.log('Editing position:', id);
+    // You can implement the edit modal here similar to Forex
+    $('#editPositionModal').modal('show');
+    // Populate the modal with position data
+    const position = positionTable.row(`#position-${id}`).data();
+    if (position) {
+        $('#editPositionForm #id').val(position.id);
+        $('#editPositionForm #symbol').val(position.symbol);
+        $('#editPositionForm #quantity').val(position.quantity);
+        $('#editPositionForm #entry_price').val(position.entry_price);
+        $('#editPositionForm #position_type').val(position.position_type);
+        $('#editPositionForm #counterparty').val(position.counterparty_name);
+    }
+}
+
+function deletePosition(id) {
+    if (confirm('Are you sure you want to delete this position?')) {
+        console.log('Deleting position:', id);
+        // Implement the delete API call here
+        fetch(`/thinkorswim/api/positions/${id}/`, {
+            method: 'DELETE',
+            headers: {
+                'X-CSRFToken': getCookie('csrftoken')
+            }
+        })
+        .then(response => {
+            if (response.ok) {
+                // Remove the row from the table
+                positionTable.row(`#position-${id}`).remove().draw();
+            } else {
+                alert('Failed to delete position');
+            }
+        })
+        .catch(error => {
+            console.error('Error deleting position:', error);
+            alert('Error deleting position');
+        });
+    }
+}
+
+function savePosition() {
+    const form = $('#editPositionForm');
+    const id = form.find('#id').val();
+    const data = {
+        symbol: form.find('#symbol').val(),
+        quantity: parseFloat(form.find('#quantity').val()),
+        entry_price: parseFloat(form.find('#entry_price').val()),
+        position_type: form.find('#position_type').val(),
+        counterparty_name: form.find('#counterparty').val()
+    };
+
+    fetch(`/thinkorswim/api/positions/${id}/`, {
+        method: 'PUT',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCookie('csrftoken')
+        },
+        body: JSON.stringify(data)
+    })
+    .then(response => response.json())
+    .then(updatedPosition => {
+        // Update the table row
+        const row = positionTable.row(`#position-${id}`);
+        if (row) {
+            row.data(updatedPosition).draw();
+        }
+        $('#editPositionModal').modal('hide');
+    })
+    .catch(error => {
+        console.error('Error updating position:', error);
+        alert('Error updating position');
+    });
+}
+
+// Helper function to get CSRF token
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+</script>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/4.6.0/js/bootstrap.bundle.min.js"></script>
+{% endblock %}
+{% endblock %} 

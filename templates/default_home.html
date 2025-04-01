@@ -1,0 +1,30 @@
+{% extends 'base.html' %}
+
+{% block title %}Welcome to Trademint{% endblock %}
+
+{% block content %}
+
+<div id="content" class="container">
+        
+    <h2>Available Applications:</h2>
+    <ul class="list-unstyled">
+        <li><a href="/admin/">Admin Interface</a> - Manage your database and users</li>
+        <li><a href="/forex/">Forex Application</a> - Manage forex trading positions</li>
+        <li><a href="/thinkorswim/">ThinkOrSwim Application</a> - Manage ThinkOrSwim trading activities</li>
+        <li><a href="/inbroker/">InBroker Application</a> - Manage InBroker trading activities</li>
+    </ul>
+    
+    <h2>Next steps:</h2>
+    <ul class="list-unstyled">
+        <li>Visit the <a href="/admin/">admin interface</a> to manage your database.</li>
+        <li>Access your trading applications:
+            <ul class="list-unstyled" >
+                <li><a href="/forex/">Forex</a> for currency trading</li>
+                <li><a href="/thinkorswim/">ThinkOrSwim</a> for options trading</li>
+                <li><a href="/inbroker/">InteractiveBroker</a> for stock trading</li>
+            </ul>
+        </li>
+        <li>Read the <a href="https://docs.djangoproject.com/" target="_blank" rel="noopener">Django documentation</a></li>
+    </ul>
+</div>
+{% endblock %} 

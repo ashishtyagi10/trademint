@@ -1,0 +1,25 @@
+.card {
+    margin-bottom: 1rem;
+    box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+}
+
+.card-header {
+    background-color: #007bff;
+    color: white;
+}
+
+.table-responsive {
+    margin-bottom: 1rem;
+}
+
+.profit {
+    color: #28a745;
+}
+
+.loss {
+    color: #dc3545;
+}
+
+.badge {
+    font-size: 0.875rem;
+}
