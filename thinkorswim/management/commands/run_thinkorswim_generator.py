@@ -51,20 +51,23 @@ class Command(BaseCommand):
 
     def _create_initial_counterparties(self):
         counterparties = [
-            ('Goldman Sachs', 'BANK', 'AA+', 95),
-            ('Morgan Stanley', 'BANK', 'AA', 92),
-            ('JP Morgan', 'BANK', 'AAA', 98),
-            ('Citadel', 'HEDGE_FUND', 'AA', 90),
-            ('BlackRock', 'ASSET_MANAGER', 'AAA', 97)
+            ('Goldman Sachs', 'BANK', 'AA+', 95, 'USA', '200 West Street, New York, NY 10282'),
+            ('Morgan Stanley', 'BANK', 'AA', 92, 'USA', '1585 Broadway, New York, NY 10036'),
+            ('JP Morgan', 'BANK', 'AAA', 98, 'USA', '383 Madison Avenue, New York, NY 10017'),
+            ('Citadel', 'INVESTMENT_FIRM', 'AA', 90, 'USA', '131 S Dearborn St, Chicago, IL 60603'),
+            ('BlackRock', 'INVESTMENT_FIRM', 'AAA', 97, 'USA', '50 Hudson Yards, New York, NY 10001')
         ]
 
-        for name, c_type, rating, score in counterparties:
+        for name, c_type, rating, score, country, address in counterparties:
             Counterparty.objects.create(
                 name=name,
                 counterparty_type=c_type,
                 credit_rating=rating,
                 risk_score=score,
-                active=True
+                active=True,
+                country=country,
+                address=address,
+                credit_limit=Decimal('1000000000.00')  # 1 billion default limit
             )
         self.stdout.write(self.style.SUCCESS('Created initial counterparties'))
 
@@ -81,8 +84,8 @@ class Command(BaseCommand):
 
     def _create_position(self, symbol, company_name, counterparty):
         quantity = Decimal(str(random.randint(100, 1000)))
-        entry_price = Decimal(str(random.uniform(50, 500)))
-        current_price = entry_price * Decimal(str(random.uniform(0.95, 1.05)))  # ±5% from entry
+        entry_price = Decimal(str(round(random.uniform(50, 500), 2)))  # Round to 2 decimal places
+        current_price = Decimal(str(round(float(entry_price) * random.uniform(0.95, 1.05), 2)))  # ±5% from entry
         
         return EquityPosition.objects.create(
             symbol=symbol,
@@ -104,9 +107,9 @@ class Command(BaseCommand):
         position = random.choice(positions)
         old_price = position.current_price
         
-        # Randomly update price (±2%)
-        price_change = Decimal(str(random.uniform(-0.02, 0.02)))
-        position.current_price = position.current_price * (1 + price_change)
+        # Randomly update price (±2%) with proper decimal places
+        price_change = Decimal(str(round(random.uniform(-0.02, 0.02), 4)))
+        position.current_price = Decimal(str(round(float(position.current_price) * float(1 + price_change), 2)))
         position.save()
         
         self.stdout.write(f'Updated {position.symbol}: {old_price} -> {position.current_price}')

@@ -70,9 +70,9 @@ class Command(BaseCommand):
             self.stdout.write(f'Created position: {position}')
 
     def _create_position(self, symbol, account):
-        quantity = Decimal(str(random.uniform(10000, 100000)))
-        entry_price = Decimal(str(random.uniform(1.0, 2.0)))
-        current_price = entry_price * Decimal(str(random.uniform(0.95, 1.05)))  # ±5% from entry
+        quantity = Decimal(str(round(random.uniform(10000, 100000), 2)))
+        entry_price = Decimal(str(round(random.uniform(1.0, 2.0), 5)))  # Round to 5 decimal places for forex
+        current_price = Decimal(str(round(float(entry_price) * random.uniform(0.95, 1.05), 5)))  # ±5% from entry
         
         return ForexPosition.objects.create(
             symbol=symbol,
@@ -93,9 +93,9 @@ class Command(BaseCommand):
         position = random.choice(positions)
         old_price = position.current_price
         
-        # Randomly update price (±0.5%)
-        price_change = Decimal(str(random.uniform(-0.005, 0.005)))
-        position.current_price = position.current_price * (1 + price_change)
+        # Randomly update price (±0.5%) with proper decimal places
+        price_change = Decimal(str(round(random.uniform(-0.005, 0.005), 5)))
+        position.current_price = Decimal(str(round(float(position.current_price) * float(1 + price_change), 5)))
         position.save()
         
         self.stdout.write(f'Updated {position.symbol}: {old_price} -> {position.current_price}')
@@ -103,7 +103,7 @@ class Command(BaseCommand):
         # Occasionally update account balance (10% chance)
         if random.random() < 0.1:
             account = random.choice(list(Account.objects.all()))
-            change = Decimal(str(random.uniform(-10000, 10000)))
+            change = Decimal(str(round(random.uniform(-10000, 10000), 2)))
             account.account_balance += change
             account.save()
             self.stdout.write(f'Updated account {account.account_name}: balance change {change}')

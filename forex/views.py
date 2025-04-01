@@ -57,11 +57,12 @@ def model_changed(sender, instance, created, **kwargs):
         data = {
             'type': 'position_update',
             'position': {
-                'currency_pair': instance.currency_pair,
-                'buy_sell_indicator': instance.buy_sell_indicator,
+                'id': instance.id,
+                'symbol': instance.symbol,
                 'quantity': str(instance.quantity),
-                'price': str(instance.price),
-                'current_market_price': str(instance.current_market_price),
+                'entry_price': str(instance.entry_price),
+                'current_price': str(instance.current_price),
+                'position_type': instance.position_type,
                 'status': instance.status,
                 'trade_date': instance.trade_date.isoformat(),
                 'account_name': instance.account.account_name
