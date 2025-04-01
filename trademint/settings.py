@@ -41,6 +41,7 @@ INSTALLED_APPS = [
     'channels',
     'forex',
     'thinkorswim',
+    'inbroker',
 ]
 
 MIDDLEWARE = [

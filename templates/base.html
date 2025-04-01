@@ -13,6 +13,18 @@
     
     <!-- Custom CSS -->
     <style>
+        /* Make the body take full height and use flexbox */
+        body {
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Make the main content area grow to fill available space */
+        .container {
+            flex: 1 0 auto;
+        }
+
         /* Navbar styling */
         .navbar-nav .nav-link {
             color: #495057 !important;  /* Dark gray color */
@@ -60,6 +72,14 @@
         .dataTables_wrapper .dataTables_paginate {
             margin: 1rem 0;
             text-align: center;
+        }
+
+        /* Footer styling */
+        .footer {
+            flex-shrink: 0;
+            background-color: #f8f9fa;
+            border-top: 1px solid #dee2e6;
+            padding: 1rem 0;
         }
     </style>
     
@@ -110,7 +130,7 @@
     </div>
 
     <!-- Footer -->
-    <footer class="footer mt-5 py-3 bg-light">
+    <footer class="footer">
         <div class="container text-center">
             <span class="text-muted">© 2024 Trademint. All rights reserved.</span>
         </div>

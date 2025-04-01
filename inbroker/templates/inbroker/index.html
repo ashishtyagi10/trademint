@@ -2,131 +2,270 @@
 
 {% block title %}InBroker Trading{% endblock %}
 
-{% block content %}
-<div class="container-fluid mt-4">
-    <!-- Stock Accounts Table -->
-    <div class="row mb-4">
-        <div class="col-12">
-            <h2>InBroker Accounts</h2>
-            <div class="table-responsive">
-                <table class="table table-striped">
-                    <thead>
-                        <tr>
-                            <th>Account ID</th>
-                            <th>Account Name</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for account in account_list %}
-                        <tr>
-                            <td>{{ account.account_id }}</td>
-                            <td>{{ account.account_name }}</td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            </div>
-            <!-- Accounts Pagination -->
-            {% if account_list.has_other_pages %}
-            <nav>
-                <ul class="pagination">
-                    {% if account_list.has_previous %}
-                        <li class="page-item">
-                            <a class="page-link" href="?account_page={{ account_list.previous_page_number }}&position_page={{ position_list.number }}">Previous</a>
-                        </li>
-                    {% endif %}
-                    
-                    {% for i in account_list.paginator.page_range %}
-                        <li class="page-item {% if account_list.number == i %}active{% endif %}">
-                            <a class="page-link" href="?account_page={{ i }}&position_page={{ position_list.number }}">{{ i }}</a>
-                        </li>
-                    {% endfor %}
-                    
-                    {% if account_list.has_next %}
-                        <li class="page-item">
-                            <a class="page-link" href="?account_page={{ account_list.next_page_number }}&position_page={{ position_list.number }}">Next</a>
-                        </li>
-                    {% endif %}
-                </ul>
-            </nav>
-            {% endif %}
-        </div>
-    </div>
+{% block extra_css %}
+<!-- DataTables CSS -->
+<link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/1.11.5/css/dataTables.bootstrap5.min.css">
+<link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/responsive/2.2.9/css/responsive.bootstrap5.min.css">
 
-    <!-- Stock Positions Table -->
-    <div class="row">
-        <div class="col-12">
-            <h2>Stock Positions</h2>
-            <div class="table-responsive">
-                <table class="table table-striped">
-                    <thead>
-                        <tr>
-                            <th>Currency Pair</th>
-                            <th>Trade Date</th>
-                            <th>Type</th>
-                            <th>Quantity</th>
-                            <th>Price</th>
-                            <th>Status</th>
-                            <th>P/L</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for position in position_list %}
-                        <tr>
-                            <td>{{ position.currency_pair }}</td>
-                            <td>{{ position.trade_date|date:"Y-m-d H:i" }}</td>
-                            <td>{{ position.get_buy_sell_indicator_display }}</td>
-                            <td>{{ position.quantity }}</td>
-                            <td>{{ position.price }}</td>
-                            <td>{{ position.status }}</td>
-                            <td>{{ position.profit_loss|default:"-" }}</td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
+<!-- Bootstrap CSS -->
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+
+<style>
+    /* Reduce overall font size */
+    body {
+        font-size: 0.9rem;
+    }
+    
+    /* Make tables more compact */
+    .table {
+        font-size: 0.85rem;
+        border-radius: 8px;
+        overflow: hidden;
+    }
+    
+    .table th {
+        font-size: 0.85rem;
+        padding: 0.5rem;
+        border-radius: 8px 8px 0 0;
+    }
+    
+    .table td {
+        padding: 0.4rem;
+    }
+    
+    /* Make buttons smaller and rounded */
+    .btn {
+        border-radius: 6px;
+        font-size: 0.75rem;
+    }
+    
+    .btn-sm {
+        padding: 0.25rem 0.5rem;
+        border-radius: 4px;
+    }
+    
+    /* Adjust card headers and add rounded corners */
+    .card {
+        border-radius: 12px;
+        overflow: hidden;
+    }
+    
+    .card-header {
+        padding: 0.75rem;
+        border-radius: 12px 12px 0 0;
+    }
+    
+    .card-body {
+        border-radius: 0 0 12px 12px;
+    }
+    
+    .card-title {
+        font-size: 1.1rem;
+        margin: 0;
+    }
+
+    /* Style for nav tabs */
+    .nav-tabs {
+        border-bottom: 1px solid #dee2e6;
+    }
+
+    .nav-tabs .nav-link {
+        margin-bottom: -1px;
+        border: 1px solid transparent;
+        border-top-left-radius: 0.25rem;
+        border-top-right-radius: 0.25rem;
+        padding: 0.75rem 1.5rem;
+        font-size: 1rem;
+    }
+
+    .nav-tabs .nav-link:hover {
+        border-color: #e9ecef #e9ecef #dee2e6;
+    }
+
+    .nav-tabs .nav-link.active {
+        color: #495057;
+        background-color: #fff;
+        border-color: #dee2e6 #dee2e6 #fff;
+    }
+
+    /* Ensure cards in tabs have proper spacing */
+    .tab-content .card {
+        margin-top: 1rem;
+    }
+
+    /* Highlight effects */
+    .highlight {
+        background-color: #ffd700;
+        transition: background-color 1s ease-out;
+        border-radius: 4px;
+    }
+    .highlight-red {
+        background-color: #ff6b6b;
+        transition: background-color 1s ease-out;
+        border-radius: 4px;
+    }
+    .highlight-green {
+        background-color: #90EE90;
+        transition: background-color 1s ease-out;
+        border-radius: 4px;
+    }
+
+    /* Pagination styling */
+    .pagination {
+        margin-top: 1rem;
+    }
+    
+    .page-link {
+        border-radius: 4px;
+        margin: 0 2px;
+        font-size: 0.85rem;
+    }
+</style>
+{% endblock extra_css %}
+
+{% block content %}
+<div class="container">
+    <!-- Nav tabs -->
+    <ul class="nav nav-tabs mb-3" id="tradingTabs" role="tablist">
+        <li class="nav-item" role="presentation">
+            <button class="nav-link active" id="positions-tab" data-bs-toggle="tab" data-bs-target="#positions" type="button" role="tab" aria-controls="positions" aria-selected="true">
+                Positions
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="accounts-tab" data-bs-toggle="tab" data-bs-target="#accounts" type="button" role="tab" aria-controls="accounts" aria-selected="false">
+                Accounts
+            </button>
+        </li>
+    </ul>
+
+    <!-- Tab content -->
+    <div class="tab-content" id="tradingTabsContent">
+        <!-- Positions Tab -->
+        <div class="tab-pane fade show active" id="positions" role="tabpanel" aria-labelledby="positions-tab">
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title text-center">Stock Positions</h3>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-striped">
+                            <thead>
+                                <tr>
+                                    <th>Currency Pair</th>
+                                    <th>Trade Date</th>
+                                    <th>Type</th>
+                                    <th>Quantity</th>
+                                    <th>Price</th>
+                                    <th>Status</th>
+                                    <th>P/L</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for position in position_list %}
+                                <tr>
+                                    <td>{{ position.currency_pair }}</td>
+                                    <td>{{ position.trade_date|date:"Y-m-d H:i" }}</td>
+                                    <td>{{ position.get_buy_sell_indicator_display }}</td>
+                                    <td>{{ position.quantity }}</td>
+                                    <td>{{ position.price }}</td>
+                                    <td>{{ position.status }}</td>
+                                    <td>{{ position.profit_loss|default:"-" }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    <!-- Positions Pagination -->
+                    {% if position_list.has_other_pages %}
+                    <nav>
+                        <ul class="pagination">
+                            {% if position_list.has_previous %}
+                                <li class="page-item">
+                                    <a class="page-link" href="?account_page={{ account_list.number }}&position_page={{ position_list.previous_page_number }}">Previous</a>
+                                </li>
+                            {% endif %}
+                            
+                            {% for i in position_list.paginator.page_range %}
+                                <li class="page-item {% if position_list.number == i %}active{% endif %}">
+                                    <a class="page-link" href="?account_page={{ account_list.number }}&position_page={{ i }}">{{ i }}</a>
+                                </li>
+                            {% endfor %}
+                            
+                            {% if position_list.has_next %}
+                                <li class="page-item">
+                                    <a class="page-link" href="?account_page={{ account_list.number }}&position_page={{ position_list.next_page_number }}">Next</a>
+                                </li>
+                            {% endif %}
+                        </ul>
+                    </nav>
+                    {% endif %}
+                </div>
             </div>
-            <!-- Positions Pagination -->
-            {% if position_list.has_other_pages %}
-            <nav>
-                <ul class="pagination">
-                    {% if position_list.has_previous %}
-                        <li class="page-item">
-                            <a class="page-link" href="?account_page={{ account_list.number }}&position_page={{ position_list.previous_page_number }}">Previous</a>
-                        </li>
+        </div>
+
+        <!-- Accounts Tab -->
+        <div class="tab-pane fade" id="accounts" role="tabpanel" aria-labelledby="accounts-tab">
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title text-center">InBroker Accounts</h3>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-striped">
+                            <thead>
+                                <tr>
+                                    <th>Account ID</th>
+                                    <th>Account Name</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for account in account_list %}
+                                <tr>
+                                    <td>{{ account.account_id }}</td>
+                                    <td>{{ account.account_name }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    <!-- Accounts Pagination -->
+                    {% if account_list.has_other_pages %}
+                    <nav>
+                        <ul class="pagination">
+                            {% if account_list.has_previous %}
+                                <li class="page-item">
+                                    <a class="page-link" href="?account_page={{ account_list.previous_page_number }}&position_page={{ position_list.number }}">Previous</a>
+                                </li>
+                            {% endif %}
+                            
+                            {% for i in account_list.paginator.page_range %}
+                                <li class="page-item {% if account_list.number == i %}active{% endif %}">
+                                    <a class="page-link" href="?account_page={{ i }}&position_page={{ position_list.number }}">{{ i }}</a>
+                                </li>
+                            {% endfor %}
+                            
+                            {% if account_list.has_next %}
+                                <li class="page-item">
+                                    <a class="page-link" href="?account_page={{ account_list.next_page_number }}&position_page={{ position_list.number }}">Next</a>
+                                </li>
+                            {% endif %}
+                        </ul>
+                    </nav>
                     {% endif %}
-                    
-                    {% for i in position_list.paginator.page_range %}
-                        <li class="page-item {% if position_list.number == i %}active{% endif %}">
-                            <a class="page-link" href="?account_page={{ account_list.number }}&position_page={{ i }}">{{ i }}</a>
-                        </li>
-                    {% endfor %}
-                    
-                    {% if position_list.has_next %}
-                        <li class="page-item">
-                            <a class="page-link" href="?account_page={{ account_list.number }}&position_page={{ position_list.next_page_number }}">Next</a>
-                        </li>
-                    {% endif %}
-                </ul>
-            </nav>
-            {% endif %}
+                </div>
+            </div>
         </div>
     </div>
 </div>
+{% endblock content %}
 
-<style>
-.highlight {
-    background-color: #ffd700;
-    transition: background-color 1s ease-out;
-}
-.highlight-red {
-    background-color: #ff6b6b;
-    transition: background-color 1s ease-out;
-}
-.highlight-green {
-    background-color: #90EE90;
-    transition: background-color 1s ease-out;
-}
-</style>
+{% block extra_js %}
+<!-- Add Bootstrap JS for tabs -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+
+<!-- jQuery -->
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 
 <script>
 let previousData = {
@@ -158,26 +297,21 @@ function highlightCell(cell, value, previousValue) {
 }
 
 function updateAccountTable(data) {
-    const row = accountTable.row(`#${data.account_name}`);
+    const row = document.querySelector(`tr[data-account-name="${data.account_name}"]`);
     if (row) {
         const prevData = previousData.accounts[data.account_name] || {};
         
-        // Update each field and highlight if changed
-        Object.keys(data).forEach(key => {
-            if (row.data()[key] !== data[key]) {
-                const cell = accountTable.cell(`#${data.account_name}`, key).node();
-                highlightCell(cell, data[key], row.data()[key]);
-                row.data()[key] = data[key];
+        // Update each cell and highlight if changed
+        row.querySelectorAll('td').forEach((cell, index) => {
+            const key = cell.getAttribute('data-field');
+            if (key && data[key] !== prevData[key]) {
+                highlightCell(cell, data[key], prevData[key]);
+                cell.textContent = data[key];
             }
         });
         
         previousData.accounts[data.account_name] = {...data};
-        row.draw(false);
     }
 }
-
-createdRow: function(row, data, dataIndex) {
-    previousData.accounts[data.account_name] = {...data};
-}
 </script>
-{% endblock %} 
+{% endblock extra_js %} 
