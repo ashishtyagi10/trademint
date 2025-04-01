@@ -5,6 +5,10 @@ from channels.generic.http import AsyncHttpConsumer
 from channels.layers import get_channel_layer
 from channels.db import database_sync_to_async
 from datetime import datetime
+from django.conf import settings
+from .models import WebSocketConnection
+from django.utils import timezone
+from django.core.cache import cache
 
 class DateTimeEncoder(json.JSONEncoder):
     def default(self, obj):
@@ -30,6 +34,9 @@ class ThinkOrSwimSSEConsumer(AsyncHttpConsumer):
         # Add self to consumers set
         self.__class__.consumers.add(self)
 
+        # Store connection info
+        await self.store_connection_info()
+
         # Send initial data
         await self.send_initial_data()
 
@@ -43,6 +50,22 @@ class ThinkOrSwimSSEConsumer(AsyncHttpConsumer):
             except Exception as e:
                 print(f"SSE Consumer Error in handle: {e}")
                 break
+
+    @database_sync_to_async
+    def store_connection_info(self):
+        """Store connection info in database"""
+        WebSocketConnection.objects.update_or_create(
+            channel_name=self.channel_name,
+            defaults={
+                'groups': ['thinkorswim_updates'],
+                'last_seen': timezone.now()
+            }
+        )
+
+    @database_sync_to_async
+    def remove_connection_info(self):
+        """Remove connection info from database"""
+        WebSocketConnection.objects.filter(channel_name=self.channel_name).delete()
 
     @database_sync_to_async
     def get_initial_data(self):
@@ -112,6 +135,7 @@ class ThinkOrSwimSSEConsumer(AsyncHttpConsumer):
         if hasattr(self, 'channel_layer'):
             await self.channel_layer.group_discard("thinkorswim_updates", self.channel_name)
             self.__class__.consumers.discard(self)
+            await self.remove_connection_info()
             print("Client disconnected from thinkorswim updates")
 
     @classmethod

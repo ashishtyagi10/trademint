@@ -297,7 +297,7 @@ $(document).ready(function() {
 
     // Initialize tables with proper variable scope
     let counterpartyTable = $('#counterpartyTable').DataTable({
-        pageLength: 10,
+        pageLength: 100,
         columns: [
             { data: 'counterparty_name' },
             { data: 'counterparty_type' },
@@ -331,7 +331,7 @@ $(document).ready(function() {
 
     // Update the DataTable initialization
     let positionTable = $('#positionTable').DataTable({
-        pageLength: 10,
+        pageLength: 100,
         columns: [
             { data: 'symbol' },
             { data: 'position_type' },
@@ -444,21 +444,49 @@ $(document).ready(function() {
 // Helper functions
 function updateCounterpartyTable(counterparty, table) {
     console.log('Updating counterparty in table:', counterparty);
-    const existingRow = table.row('#counterparty-' + counterparty.id);
+    const existingRow = table.row(`#counterparty-${counterparty.counterparty_id}`);
     if (existingRow.length) {
-        existingRow.data(counterparty).draw();
+        const oldData = existingRow.data();
+        const newData = counterparty;
+        
+        // Compare and highlight changes
+        Object.keys(newData).forEach(key => {
+            if (oldData[key] !== newData[key]) {
+                const cell = existingRow.node().querySelector(`td[data-column="${key}"]`);
+                if (cell) {
+                    cell.classList.add('highlight');
+                    setTimeout(() => cell.classList.remove('highlight'), 2000);
+                }
+            }
+        });
+        
+        existingRow.data(newData).draw();
     } else {
-        table.row.add(counterparty).draw();
+        table.row.add(newData).draw();
     }
 }
 
 function updatePositionTable(position, table) {
     console.log('Updating position in table:', position);
-    const existingRow = table.row('#position-' + position.id);
+    const existingRow = table.row(`#position-${position.position_id}`);
     if (existingRow.length) {
-        existingRow.data(position).draw();
+        const oldData = existingRow.data();
+        const newData = position;
+        
+        // Compare and highlight changes
+        Object.keys(newData).forEach(key => {
+            if (oldData[key] !== newData[key]) {
+                const cell = existingRow.node().querySelector(`td[data-column="${key}"]`);
+                if (cell) {
+                    cell.classList.add('highlight');
+                    setTimeout(() => cell.classList.remove('highlight'), 2000);
+                }
+            }
+        });
+        
+        existingRow.data(newData).draw();
     } else {
-        table.row.add(position).draw();
+        table.row.add(newData).draw();
     }
 }
 

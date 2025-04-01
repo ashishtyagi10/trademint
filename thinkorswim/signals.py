@@ -1,10 +1,12 @@
 from django.db.models.signals import post_save
 from django.dispatch import receiver
-from .models import Counterparty, EquityPosition
+from .models import Counterparty, EquityPosition, WebSocketConnection
 from channels.layers import get_channel_layer
 from asgiref.sync import async_to_sync
 import json
 from datetime import datetime
+from django.utils import timezone
+from django.core.cache import cache
 
 class DateTimeEncoder(json.JSONEncoder):
     def default(self, obj):
@@ -17,6 +19,44 @@ class DateTimeEncoder(json.JSONEncoder):
 def model_changed(sender, instance, created, **kwargs):
     channel_layer = get_channel_layer()
     
+    # Get active connections from cache
+    connections_list = cache.get('active_connections', [])
+    active_connections = []
+    
+    if not connections_list:
+        # If no connections in cache, try to get from database
+        connections = WebSocketConnection.objects.filter(
+            last_seen__gte=timezone.now() - timezone.timedelta(minutes=5)
+        )
+        connections_list = [conn.channel_name for conn in connections]
+        cache.set('active_connections', connections_list, timeout=300)  # 5 minutes timeout
+    
+    if connections_list:
+        for channel_name in connections_list:
+            connection_data = cache.get(f"connection_{channel_name}")
+            if connection_data:
+                last_seen = datetime.fromisoformat(connection_data['last_seen'])
+                if last_seen > timezone.now() - timezone.timedelta(minutes=5):
+                    active_connections.append(channel_name)
+                else:
+                    # Remove stale connection
+                    cache.delete(f"connection_{channel_name}")
+                    connections_list.remove(channel_name)
+            else:
+                # Create connection data if it doesn't exist
+                connection_data = {
+                    'groups': ['thinkorswim_updates'],
+                    'last_seen': timezone.now().isoformat()
+                }
+                cache.set(f"connection_{channel_name}", connection_data, timeout=300)
+                active_connections.append(channel_name)
+    
+    # Update the list of active connections
+    cache.set('active_connections', connections_list, timeout=300)
+    
+    if not active_connections:
+        return
+
     if isinstance(instance, Counterparty):
         data = {
             'type': 'counterparty_update',
