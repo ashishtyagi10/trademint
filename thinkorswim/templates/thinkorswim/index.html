@@ -24,6 +24,29 @@
     .status-pending {
         background-color: #fff3cd !important;
     }
+    
+    /* Button styling */
+    .btn-group .btn {
+        margin: 0 3px;
+        padding: 0.375rem 0.75rem;
+        height: 31px;
+        line-height: 1;
+    }
+    
+    .btn-group {
+        display: flex;
+        gap: 5px;
+    }
+
+    .action-button {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .action-button i {
+        margin-right: 4px;
+    }
 </style>
 
 <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css" rel="stylesheet">
@@ -223,11 +246,11 @@ $(document).ready(function() {
                 render: function(data, type, row) {
                     return `
                         <div class="btn-group" role="group">
-                            <button type="button" class="btn btn-sm btn-primary" onclick="editPosition(${data})">
-                                <i class="fas fa-edit"></i> Edit
+                            <button type="button" class="btn btn-sm btn-primary action-button" onclick="editPosition(${data})">
+                                <i class="fas fa-edit"></i><span>Edit</span>
                             </button>
-                            <button type="button" class="btn btn-sm btn-danger" onclick="deletePosition(${data})">
-                                <i class="fas fa-trash"></i> Delete
+                            <button type="button" class="btn btn-sm btn-danger action-button" onclick="deletePosition(${data})">
+                                <i class="fas fa-trash"></i><span>Delete</span>
                             </button>
                         </div>
                     `;
