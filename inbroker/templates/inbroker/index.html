@@ -1,0 +1,183 @@
+{% extends 'base.html' %}
+
+{% block title %}InBroker Trading{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <!-- Stock Accounts Table -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <h2>InBroker Accounts</h2>
+            <div class="table-responsive">
+                <table class="table table-striped">
+                    <thead>
+                        <tr>
+                            <th>Account ID</th>
+                            <th>Account Name</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for account in account_list %}
+                        <tr>
+                            <td>{{ account.account_id }}</td>
+                            <td>{{ account.account_name }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            <!-- Accounts Pagination -->
+            {% if account_list.has_other_pages %}
+            <nav>
+                <ul class="pagination">
+                    {% if account_list.has_previous %}
+                        <li class="page-item">
+                            <a class="page-link" href="?account_page={{ account_list.previous_page_number }}&position_page={{ position_list.number }}">Previous</a>
+                        </li>
+                    {% endif %}
+                    
+                    {% for i in account_list.paginator.page_range %}
+                        <li class="page-item {% if account_list.number == i %}active{% endif %}">
+                            <a class="page-link" href="?account_page={{ i }}&position_page={{ position_list.number }}">{{ i }}</a>
+                        </li>
+                    {% endfor %}
+                    
+                    {% if account_list.has_next %}
+                        <li class="page-item">
+                            <a class="page-link" href="?account_page={{ account_list.next_page_number }}&position_page={{ position_list.number }}">Next</a>
+                        </li>
+                    {% endif %}
+                </ul>
+            </nav>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Stock Positions Table -->
+    <div class="row">
+        <div class="col-12">
+            <h2>Stock Positions</h2>
+            <div class="table-responsive">
+                <table class="table table-striped">
+                    <thead>
+                        <tr>
+                            <th>Currency Pair</th>
+                            <th>Trade Date</th>
+                            <th>Type</th>
+                            <th>Quantity</th>
+                            <th>Price</th>
+                            <th>Status</th>
+                            <th>P/L</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for position in position_list %}
+                        <tr>
+                            <td>{{ position.currency_pair }}</td>
+                            <td>{{ position.trade_date|date:"Y-m-d H:i" }}</td>
+                            <td>{{ position.get_buy_sell_indicator_display }}</td>
+                            <td>{{ position.quantity }}</td>
+                            <td>{{ position.price }}</td>
+                            <td>{{ position.status }}</td>
+                            <td>{{ position.profit_loss|default:"-" }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            <!-- Positions Pagination -->
+            {% if position_list.has_other_pages %}
+            <nav>
+                <ul class="pagination">
+                    {% if position_list.has_previous %}
+                        <li class="page-item">
+                            <a class="page-link" href="?account_page={{ account_list.number }}&position_page={{ position_list.previous_page_number }}">Previous</a>
+                        </li>
+                    {% endif %}
+                    
+                    {% for i in position_list.paginator.page_range %}
+                        <li class="page-item {% if position_list.number == i %}active{% endif %}">
+                            <a class="page-link" href="?account_page={{ account_list.number }}&position_page={{ i }}">{{ i }}</a>
+                        </li>
+                    {% endfor %}
+                    
+                    {% if position_list.has_next %}
+                        <li class="page-item">
+                            <a class="page-link" href="?account_page={{ account_list.number }}&position_page={{ position_list.next_page_number }}">Next</a>
+                        </li>
+                    {% endif %}
+                </ul>
+            </nav>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<style>
+.highlight {
+    background-color: #ffd700;
+    transition: background-color 1s ease-out;
+}
+.highlight-red {
+    background-color: #ff6b6b;
+    transition: background-color 1s ease-out;
+}
+.highlight-green {
+    background-color: #90EE90;
+    transition: background-color 1s ease-out;
+}
+</style>
+
+<script>
+let previousData = {
+    accounts: {},
+    positions: {}
+};
+
+function highlightCell(cell, value, previousValue) {
+    if (value !== previousValue) {
+        const numValue = parseFloat(value);
+        const numPrevValue = parseFloat(previousValue);
+        
+        if (!isNaN(numValue) && !isNaN(numPrevValue)) {
+            if (numValue > numPrevValue) {
+                cell.classList.add('highlight-green');
+            } else if (numValue < numPrevValue) {
+                cell.classList.add('highlight-red');
+            } else {
+                cell.classList.add('highlight');
+            }
+        } else {
+            cell.classList.add('highlight');
+        }
+        
+        setTimeout(() => {
+            cell.classList.remove('highlight', 'highlight-red', 'highlight-green');
+        }, 1000);
+    }
+}
+
+function updateAccountTable(data) {
+    const row = accountTable.row(`#${data.account_name}`);
+    if (row) {
+        const prevData = previousData.accounts[data.account_name] || {};
+        
+        // Update each field and highlight if changed
+        Object.keys(data).forEach(key => {
+            if (row.data()[key] !== data[key]) {
+                const cell = accountTable.cell(`#${data.account_name}`, key).node();
+                highlightCell(cell, data[key], row.data()[key]);
+                row.data()[key] = data[key];
+            }
+        });
+        
+        previousData.accounts[data.account_name] = {...data};
+        row.draw(false);
+    }
+}
+
+createdRow: function(row, data, dataIndex) {
+    previousData.accounts[data.account_name] = {...data};
+}
+</script>
+{% endblock %} 
